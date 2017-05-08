@@ -7,6 +7,7 @@ from django.db import models
 from django.utils import six
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy
+from haystack import indexes
 
 try:
     from django.urls import reverse
@@ -22,8 +23,12 @@ class Person(models.Model):
     last_name = models.CharField(max_length=200, verbose_name='surname')
 
     occupation = models.ForeignKey(
-        'Occupation', related_name='people',
-        null=True, verbose_name='occupation of the person')
+        'Occupation',
+        related_name='people',
+        null=True,
+        verbose_name='occupation of the person',
+        on_delete=models.CASCADE
+    )
 
     trans_test = models.CharField(
         max_length=200, blank=True,
@@ -42,7 +47,12 @@ class Person(models.Model):
 
     birthdate = models.DateField(null=True)
 
-    content_type = models.ForeignKey(ContentType, null=True, blank=True)
+    content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE
+    )
     object_id = models.PositiveIntegerField(null=True, blank=True)
     foreign_key = GenericForeignKey()
 
@@ -70,7 +80,7 @@ class PersonProxy(Person):
 @six.python_2_unicode_compatible
 class Occupation(models.Model):
     name = models.CharField(max_length=200)
-    region = models.ForeignKey('Region', null=True)
+    region = models.ForeignKey('Region', null=True, on_delete=models.CASCADE)
     boolean = models.BooleanField(null=True)
     boolean_with_choices = models.BooleanField(null=True, choices=(
         (True, 'Yes'),
@@ -87,7 +97,7 @@ class Occupation(models.Model):
 @six.python_2_unicode_compatible
 class Region(models.Model):
     name = models.CharField(max_length=200)
-    mayor = models.OneToOneField(Person, null=True)
+    mayor = models.OneToOneField(Person, null=True, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name
@@ -95,19 +105,20 @@ class Region(models.Model):
 
 class PersonInformation(models.Model):
     person = models.ForeignKey(
-        Person, related_name='info_list', verbose_name='Information')
+        Person,
+        related_name='info_list',
+        verbose_name='Information',
+        on_delete=models.CASCADE
+    )
 
 
 # -- haystack -----------------------------------------------------------------
 
-if not six.PY3:  # Haystack isn't compatible with Python 3
-    from haystack import indexes
+class PersonIndex(indexes.SearchIndex, indexes.Indexable):
+    first_name = indexes.CharField(document=True)
 
-    class PersonIndex(indexes.SearchIndex, indexes.Indexable):
-        first_name = indexes.CharField(document=True)
+    def get_model(self):
+        return Person
 
-        def get_model(self):
-            return Person
-
-        def index_queryset(self, using=None):
-            return self.get_model().objects.all()
+    def index_queryset(self, using=None):
+        return self.get_model().objects.all()

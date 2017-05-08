@@ -1,7 +1,41 @@
 # Change log
 
+## master (unreleased)
+
+
+## 1.6.0 (2017-05-01)
+- Add new template `bootstrap-responsive.html` to generate a responsive bootstrap table. (Fixes [#436](https://github.com/bradleyayers/django-tables2/issues/436))
+
+## 1.5.0 (2017-04-18)
+_Full disclosure: as of april 1st, 2017, I am an employee of [Zostera](http://zostera.nl/), as such I will continue to maintain and improve django-tables2._
+ - Made `TableBase.as_values()` an interator ([#432](https://github.com/bradleyayers/django-tables2/pull/432) by [@pziarsolo](https://github.com/pziarsolo))
+ - Added `JSONField` for data in JSON format.
+ - Added `__all__` in `django_tables2/__init__.py` and `django_tables2/columns/__init__.py`
+ - Added a setting `DJANGO_TABLES2_TEMPLATE` to allow project-wide overriding of the template used to render tables (fixes [#434](https://github.com/bradleyayers/django-tables2/issues/434)).
+
+## 1.4.2 (2017-03-06)
+ - Feature: Pinned rows ([#411](https://github.com/bradleyayers/django-tables2/pull/411) by [@djk2](https://github.com/djk2), fixes [#406](https://github.com/bradleyayers/django-tables2/issues/406))
+ - Fix an issue where `ValueError` was raised while using a view with a `get_queryset()` method defined. (fix with [#423](https://github.com/bradleyayers/django-tables2/pull/423) by [@desecho](https://github.com/desecho))
+
+## 1.4.1 (2017-02-27)
+ - Fix urls to screenshots in on pypi description (fixes [ #398](https://github.com/bradleyayers/django-tables2/issues/398))
+ - Prevent superfluous spaces when a callable `row_attrs['class']` returns an empty string ([#417](https://github.com/bradleyayers/django-tables2/pull/417 by [@Superman8218](https://github.com/Superman8218)), fixes [#416](https://github.com/bradleyayers/django-tables2/issues/416))
+
+
+## 1.4.0 (2017-02-27)
+ - Return `None` from `Table.as_values()` for missing values. [#419](https://github.com/bradleyayers/django-tables2/pull/419)
+ - Fix ordering by custom fields, and refactor `TableData` [#424](https://github.com/bradleyayers/django-tables2/pull/424), fixes [#413](https://github.com/bradleyayers/django-tables2/issues/413)
+ - Revert removing `TableData.__iter__()` (removed in [this commit](https://github.com/bradleyayers/django-tables2/commit/8fe9826429e6945a9258bc181fcbd711b282dba9)), fixes [#427](https://github.com/bradleyayers/django-tables2/issues/427), [#361](https://github.com/bradleyayers/django-tables2/issues/361) and [#421](https://github.com/bradleyayers/django-tables2/issues/421).
+
+## 1.3.0 (2017-01-20)
+ - Implement method `Table.as_values()` to get it's raw values. [#394](https://github.com/bradleyayers/django-tables2/pull/394) by [@intiocean](https://github.com/intiocean)
+ - Fix some compatibility issues with django 2.0 [#408](https://github.com/bradleyayers/django-tables2/pull/409) by [djk2](https://github.com/djk2)
+
+## 1.2.9 (2016-12-21)
+ - Documentation for `None`-column attributes [#401](https://github.com/bradleyayers/django-tables2/pull/401) by [@dyve](https://github.com/dyve)
+
 ## 1.2.8 (2016-12-21)
- - Non-column attributes on child class overwrite column attributes of parent class
+ - `None`-column attributes on child class overwrite column attributes of parent class
  [#400](https://github.com/bradleyayers/django-tables2/pull/400) by [@dyve](https://github.com/dyve)
 
 ## 1.2.7 (2016-12-12)

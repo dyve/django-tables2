@@ -6,10 +6,10 @@ from itertools import islice
 
 from django.utils import six
 from django.utils.safestring import SafeData
-
 from django_tables2.templatetags.django_tables2 import title
 from django_tables2.utils import (Accessor, AttributeDict, OrderBy,
-                                  OrderByTuple, call_with_appropriate)
+                                  OrderByTuple, call_with_appropriate,
+                                  computed_values)
 
 
 class Library(object):
@@ -188,6 +188,21 @@ class Column(object):
         '''
         return value
 
+    def value(self, **kwargs):
+        '''
+        Returns the content for a specific cell similarly to `.render` however
+        without any html content. This can be used to get the data in the
+        formatted as it is presented but in a form that could be added to a csv
+        file.
+
+        The default implementation just calls the `render` function but any
+        subclasses where `render` returns html content should override this
+        method.
+
+        See `LinkColumn` for an example.
+        '''
+        return call_with_appropriate(self.render, kwargs)
+
     def order(self, queryset, is_descending):
         '''
         Returns the queryset of the table.
@@ -196,7 +211,8 @@ class Column(object):
         table or by subclassing `.Column`; but only overrides if second element
         in return tuple is True.
 
-        :returns: Tuple (queryset, boolean)
+        returns:
+            Tuple (queryset, boolean)
         '''
         return (queryset, False)
 
@@ -205,9 +221,10 @@ class Column(object):
         '''
         Return a specialised column for the model field or `None`.
 
-        :param field: the field that needs a suitable column
-        :type  field: model field instance
-        :returns: `.Column` object or `None`
+        Arguments:
+            field (Model Field instance): the field that needs a suitable column
+        Returns:
+            `.Column` object or `None`
 
         If the column isn't specialised for the given model field, it should
         return `None`. This gives other columns the opportunity to do better.
@@ -247,7 +264,7 @@ class BoundColumn(object):
 
     '''
     def __init__(self, table, column, name):
-        self.table = table
+        self._table = table
         self.column = column
         self.name = name
 
@@ -272,15 +289,23 @@ class BoundColumn(object):
         templates easier.
         '''
         # Start with table's attrs; Only 'th' and 'td' attributes will be used
-        attrs = dict(self.table.attrs)
+        attrs = dict(self._table.attrs)
 
         # Update attrs to prefer column's attrs rather than table's
         attrs.update(dict(self.column.attrs))
 
-        # Find the relevant th attributes (fall back to cell if th isn't
-        # explicitly specified).
-        attrs['th'] = AttributeDict(attrs.get('th', attrs.get('cell', {})))
-        attrs['td'] = AttributeDict(attrs.get('td', attrs.get('cell', {})))
+        # we take the value for 'cell' as the basis for both the th and td attrs
+        cell_attrs = attrs.get('cell', {})
+        # override with attrs defined specifically for th and td respectively.
+        kwargs = {
+            'table': self._table
+        }
+        attrs['th'] = computed_values(attrs.get('th', cell_attrs), **kwargs)
+        attrs['td'] = computed_values(attrs.get('td', cell_attrs), **kwargs)
+
+        # wrap in AttributeDict
+        attrs['th'] = AttributeDict(attrs['th'])
+        attrs['td'] = AttributeDict(attrs['td'])
 
         # Override/add classes
         attrs['th']['class'] = self.get_th_class(attrs['th'])
@@ -293,7 +318,7 @@ class BoundColumn(object):
         Returns the HTML class attribute for a data cell in this column
         '''
         classes = set((c for c in td_attrs.get('class', '').split(' ') if c))
-        classes = self.table.get_column_class_names(classes, self)
+        classes = self._table.get_column_class_names(classes, self)
         return ' '.join(sorted(classes))
 
     def get_th_class(self, th_attrs):
@@ -301,7 +326,7 @@ class BoundColumn(object):
         Returns the HTML class attribute for a header cell in this column
         '''
         classes = set((c for c in th_attrs.get('class', '').split(' ') if c))
-        classes = self.table.get_column_class_names(classes, self)
+        classes = self._table.get_column_class_names(classes, self)
 
         # add classes for ordering
         ordering_class = th_attrs.get('_ordering', {})
@@ -321,7 +346,7 @@ class BoundColumn(object):
         '''
         value = self.column.default
         if value is None:
-            value = self.table.default
+            value = self._table.default
         return value
 
     @property
@@ -340,7 +365,7 @@ class BoundColumn(object):
     def footer(self):
         return call_with_appropriate(self.column.footer, {
             'bound_column': self,
-            'table': self.table
+            'table': self._table
         })
 
     def has_footer(self):
@@ -412,13 +437,13 @@ class BoundColumn(object):
             {% endif %}
 
         '''
-        order_by = OrderBy((self.table.order_by or {}).get(self.name, self.name))
+        order_by = OrderBy((self._table.order_by or {}).get(self.name, self.name))
         order_by.next = order_by.opposite if self.is_ordered else order_by
         return order_by
 
     @property
     def is_ordered(self):
-        return self.name in (self.table.order_by or ())
+        return self.name in (self._table.order_by or ())
 
     @property
     def orderable(self):
@@ -427,7 +452,7 @@ class BoundColumn(object):
         '''
         if self.column.orderable is not None:
             return self.column.orderable
-        return self.table.orderable
+        return self._table.orderable
 
     @property
     def verbose_name(self):
@@ -459,8 +484,8 @@ class BoundColumn(object):
         name = self.name.replace('_', ' ')
 
         # Try to use a model field's verbose_name
-        if hasattr(self.table.data, 'queryset') and hasattr(self.table.data.queryset, 'model'):
-            model = self.table.data.queryset.model
+        model = self._table.data.get_model()
+        if model:
             field = Accessor(self.accessor).get_field(model)
             if field:
                 if hasattr(field, 'field'):
@@ -510,7 +535,7 @@ class BoundColumns(object):
         table (`.Table`): the table containing the columns
     '''
     def __init__(self, table):
-        self.table = table
+        self._table = table
         self.columns = OrderedDict()
         for name, column in six.iteritems(table.base_columns):
             self.columns[name] = bc = BoundColumn(table, column, name)
@@ -543,8 +568,8 @@ class BoundColumns(object):
         supports (e.g. `~Table.Meta.exclude` and `~Table.Meta.sequence`).
         '''
 
-        for name in self.table.sequence:
-            if name not in self.table.exclude:
+        for name in self._table.sequence:
+            if name not in self._table.exclude:
                 yield (name, self.columns[name])
 
     def items(self):

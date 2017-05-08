@@ -6,8 +6,7 @@ from itertools import chain
 
 from django.db.models.fields import FieldDoesNotExist
 from django.utils import six
-from django.utils.html import escape
-from django.utils.safestring import mark_safe
+from django.utils.html import format_html_join
 
 
 class Sequence(list):
@@ -360,9 +359,16 @@ class Accessor(str):
                 field = model._meta.get_field(bit)
             except FieldDoesNotExist:
                 break
-            if hasattr(field, 'rel') and hasattr(field.rel, 'to'):
-                model = field.rel.to
-                continue
+
+            if hasattr(field, 'remote_field'):
+                rel = getattr(field, 'remote_field', None)
+                model = getattr(rel, 'model', model)
+
+            # !!! Support only for Django <= 1.8
+            # Remove this when support for Django 1.8 is over
+            else:
+                rel = getattr(field, 'rel', None)
+                model = getattr(rel, 'to', model)
 
         return field
 
@@ -411,8 +417,10 @@ class AttributeDict(dict):
         '''
 
         blacklist = ('th', 'td', '_ordering')
-        return mark_safe(' '.join(['%s="%s"' % (k, escape(v if not callable(v) else v()))
-                                   for k, v in six.iteritems(self) if k not in blacklist]))
+        return format_html_join(
+            ' ', '{}="{}"',
+            [(k, v) for k, v in six.iteritems(self) if k not in blacklist]
+        )
 
 
 def segment(sequence, aliases):

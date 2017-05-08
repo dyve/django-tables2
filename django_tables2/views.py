@@ -91,6 +91,13 @@ class SingleTableMixin(TableMixinBase):
             return self.table_data
         elif hasattr(self, 'object_list'):
             return self.object_list
+        elif hasattr(self, 'get_queryset'):
+            return self.get_queryset()
+
+        klass = type(self).__name__
+        raise ImproperlyConfigured(
+            'Table data was not specified. Define {}.table_data'.format(klass)
+        )
 
     def get_table_kwargs(self):
         '''
